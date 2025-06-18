@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { redirect } from "next/navigation"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -16,13 +17,25 @@ interface User {
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const userData = localStorage.getItem("user")
     if (userData) {
       setUser(JSON.parse(userData))
     }
+    setIsLoading(false)
   }, [])
+
+  // Redirect to login if no user is found
+  if (!isLoading && !user) {
+    redirect("/login")
+  }
+
+  // Don't render anything while checking authentication
+  if (isLoading || !user) {
+    return null
+  }
 
   const dashboardStats = getDashboardStats()
 
@@ -48,92 +61,35 @@ export default function DashboardPage() {
       value: dashboardStats.pendingApprovals.toString(),
       description: "Requires attention",
       icon: CheckSquare,
-      color: "text-orange-600",
-      bgColor: "bg-orange-100",
+      color: "text-yellow-600",
+      bgColor: "bg-yellow-100",
     },
     {
       title: "Open Issues",
       value: dashboardStats.openIssues.toString(),
-      description: `${mockIssues.filter((i) => i.priority === "Critical").length} critical`,
+      description: "Active reports",
       icon: AlertTriangle,
       color: "text-red-600",
       bgColor: "bg-red-100",
     },
   ]
 
-  const recentBookings = mockBookingRequests.slice(0, 5).map((booking) => ({
-    id: booking.id,
-    vehicle: booking.vehicle.name,
-    user: booking.requester.name,
-    department: booking.requester.department,
-    date: booking.dateFrom,
-    status: booking.status,
-    purpose: booking.purpose.substring(0, 50) + "...",
-  }))
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Approved":
-        return "bg-green-100 text-green-800"
-      case "Pending":
-        return "bg-yellow-100 text-yellow-800"
-      case "Rejected":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  if (!user) {
-    return <div>Loading...</div>
-  }
-
   return (
     <DashboardLayout userRole={user.role}>
       <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Welcome back, {user.name}</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-gray-600">Welcome back, {user.name}</p>
+          </div>
         </div>
 
-        {/* User Info Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Your Profile
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Name</p>
-                <p className="text-lg">{user.name}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Email</p>
-                <p className="text-lg">{user.email}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Department</p>
-                <p className="text-lg">{user.department}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Role</p>
-                <Badge variant="secondary">{user.role}</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat, index) => (
             <Card key={index}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <div className={`p-2 rounded-md ${stat.bgColor}`}>
+                <div className={`rounded-lg p-2 ${stat.bgColor}`}>
                   <stat.icon className={`h-4 w-4 ${stat.color}`} />
                 </div>
               </CardHeader>
@@ -145,39 +101,69 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Recent Bookings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Recent Bookings
-            </CardTitle>
-            <CardDescription>Latest vehicle booking requests and their status</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentBookings.map((booking) => (
-                <div key={booking.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <p className="font-medium">{booking.vehicle}</p>
-                        <p className="text-sm text-gray-500">
-                          {booking.user} • {booking.department}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">{booking.purpose}</p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          <Card className="col-span-4">
+            <CardHeader>
+              <CardTitle>Recent Bookings</CardTitle>
+              <CardDescription>Recent vehicle booking requests</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {mockBookingRequests.map((booking, index) => (
+                <div key={index} className="mb-4 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                    <Users className="h-6 w-6 text-gray-600" />
                   </div>
-                  <div className="text-right">
-                    <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
-                    <p className="text-sm text-gray-500 mt-1">{booking.date}</p>
+                  <div>
+                    <div className="font-semibold">Vehicle Request</div>
+                    <div className="text-sm text-gray-600">Booking request</div>
                   </div>
+                  <Badge
+                    className={
+                      booking.status === "Approved"
+                        ? "ml-auto bg-green-100 text-green-800"
+                        : booking.status === "Pending"
+                        ? "ml-auto bg-yellow-100 text-yellow-800"
+                        : "ml-auto bg-red-100 text-red-800"
+                    }
+                  >
+                    {booking.status}
+                  </Badge>
                 </div>
               ))}
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          <Card className="col-span-3">
+            <CardHeader>
+              <CardTitle>Recent Issues</CardTitle>
+              <CardDescription>Latest reported vehicle issues</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {mockIssues.map((issue, index) => (
+                <div key={index} className="mb-4">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        issue.priority === "High"
+                          ? "bg-red-500"
+                          : issue.priority === "Medium"
+                          ? "bg-yellow-500"
+                          : "bg-blue-500"
+                      }`}
+                    />
+                    <div className="font-semibold">Vehicle Issue</div>
+                    <Badge variant="secondary" className="ml-auto">
+                      {issue.priority}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-600 pl-6">
+                    {issue.description}
+                  </p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </DashboardLayout>
   )
